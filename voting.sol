@@ -13,7 +13,13 @@ contract AnonymousVoting {
 
     mapping(string => uint256) public voteCounts;
 
+    uint256 public totalVotes;
+    uint256 public totalParticipants;
+
     address public owner;
+
+    event VoteRevealed(address indexed voter, string vote);
+    event VoteCommitted(address indexed voter);
 
     constructor(uint256 _commitDuration, uint256 _revealDuration) {
         owner = msg.sender;
@@ -35,18 +41,26 @@ contract AnonymousVoting {
         }
     }
 
-    function commitVote(bytes32 _commitment) external onlyInPhase(Phase.Commit) {
+    function commitVote(bytes32 _commitment) external {
+        updatePhase();
+        require(phase == Phase.Commit, "Not in commit phase");
         require(commitments[msg.sender] == 0, "Already committed");
         commitments[msg.sender] = _commitment;
+        emit VoteCommitted(msg.sender);
     }
 
-    function revealVote(string memory _vote, string memory _salt) external onlyInPhase(Phase.Reveal) {
+    function revealVote(string memory _vote, string memory _salt) external {
+        updatePhase();
+        require(phase == Phase.Reveal, "Not in reveal phase");
         require(!revealed[msg.sender], "Already revealed");
         bytes32 expected = keccak256(abi.encodePacked(_vote, _salt));
         require(commitments[msg.sender] == expected, "Invalid reveal");
 
         voteCounts[_vote]++;
+        totalVotes++;
+        totalParticipants++;
         revealed[msg.sender] = true;
+        emit VoteRevealed(msg.sender, _vote);
     }
 
     function getVoteCount(string memory _vote) external view returns (uint256) {
